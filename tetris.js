@@ -18,7 +18,7 @@ class Tetris {
         this.board = null;
         this.currentPiece = null;
         this.nextPiece = null;
-        this.gameState = -1; // 0 = partida en marxa, 1 = partida acabada.
+        this.gameState = -1; // 0 = Partida en marxa, 1 = Partida acabada.
     }
 
     initGame() {
@@ -94,7 +94,8 @@ class Tetris {
 
         this.#eraseLines(linesCompleted);
     }
-
+	
+	// PER TREURE/MODIFICAR
     display() {
         console.clear();
         console.log("=== TETRIS ===");
@@ -134,6 +135,7 @@ class Tetris {
         console.log("Controls: A/D = Left/Right, S = Drop");
     }
 
+	// PER TREURE/MODIFICAR
     play() {
         this.initGame();
 
@@ -212,6 +214,7 @@ class Tetris {
 
         piece.x = Math.floor((Tetris.BOARD_WIDTH-1)/2);
         piece.y = Tetris.BOARD_HEIGHT-2;
+		piece.rot = 
         piece.type = randomType;
         piece.cells = this.#getPieceCells(piece);
 
@@ -223,8 +226,8 @@ class Tetris {
 
         switch (Tetris.PIECE_TYPES[piece.type]) {
             case "I":
-                pieceCells.push([piece.x-1, piece.y]);
                 pieceCells.push([piece.x, piece.y]);
+                pieceCells.push([piece.x-1, piece.y]);
                 pieceCells.push([piece.x+1, piece.y]);
                 pieceCells.push([piece.x+2, piece.y]);
                 break;
@@ -232,46 +235,49 @@ class Tetris {
             case "O":
                 pieceCells.push([piece.x, piece.y]);
                 pieceCells.push([piece.x+1, piece.y]);
-                pieceCells.push([piece.x+1, piece.y-1]);
-                pieceCells.push([piece.x, piece.y-1]);
+                pieceCells.push([piece.x+1, piece.y+1]);
+                pieceCells.push([piece.x, piece.y+1]);
                 break;
 
             case "T":
                 pieceCells.push([piece.x, piece.y]);
                 pieceCells.push([piece.x-1, piece.y]);
                 pieceCells.push([piece.x+1, piece.y]);
-                pieceCells.push([piece.x, piece.y-1]);
+                pieceCells.push([piece.x, piece.y+1]);
                 break;
 
             case "S":
                 pieceCells.push([piece.x, piece.y]);
                 pieceCells.push([piece.x-1, piece.y]);
-                pieceCells.push([piece.x, piece.y-1]);
-                pieceCells.push([piece.x+1, piece.y-1]);
+                pieceCells.push([piece.x, piece.y+1]);
+                pieceCells.push([piece.x+1, piece.y+1]);
                 break;
 
             case "Z":
                 pieceCells.push([piece.x, piece.y]);
-                pieceCells.push([piece.x-1, piece.y]);
-                pieceCells.push([piece.x, piece.y-1]);
-                pieceCells.push([piece.x+1, piece.y-1]);
+                pieceCells.push([piece.x + Math.cos(piece.rot), 
+								 piece.y - Math.sin(piece.rot)]);
+                pieceCells.push([piece.x + Math.sin(piece.rot), 
+								 piece.y + Math.abs(Math.cos(piece.rot))]);
+                pieceCells.push([piece.x + Math.sin(piece.rot) - Math.cos(piece.rot), 
+								 piece.y + Math.sin(piece.rot) + Math.cos(piece.rot)]);
                 break;
 
             case "L":
                 pieceCells.push([piece.x, piece.y]);
-                pieceCells.push([piece.x, piece.y+1]);
+                pieceCells.push([piece.x-1, piece.y]);
+                pieceCells.push([piece.x-1, piece.y-1]);
                 pieceCells.push([piece.x+1, piece.y]);
-                pieceCells.push([piece.x+2, piece.y]);
                 break;
 
             case "J":
                 pieceCells.push([piece.x, piece.y]);
-                pieceCells.push([piece.x, piece.y-1]);
+                pieceCells.push([piece.x-1, piece.y]);
+                pieceCells.push([piece.x-1, piece.y+1]);
                 pieceCells.push([piece.x+1, piece.y]);
-                pieceCells.push([piece.x+2, piece.y]);
                 break;
         }
-
+		// FALTA ARRODONIR...
         return pieceCells;
     }
 
