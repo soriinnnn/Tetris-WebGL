@@ -12,6 +12,10 @@
  * @property {number[][] | null} cells - Coordenades de les cel·les de la peça.
  */
 class TetrisPiece {
+    /**
+     * Crea una nova instància de TetrisPiece.
+     * @constructor
+     */
     constructor() {
         this.x = 0;
         this.y = 0;
@@ -21,6 +25,15 @@ class TetrisPiece {
     }
 }
 
+/**
+ * Classe principal que gestiona la lògica del joc Tetris.
+ *
+ * @class Tetris
+ * @property {number[][] | null} board - Tauler de joc (matriu de cel·les).
+ * @property {TetrisPiece | null} currentPiece - Peça actualment en joc.
+ * @property {TetrisPiece | null} nextPiece - Següent peça a aparèixer.
+ * @property {number} gameState - Estat del joc (-1: no inicialitzat, 0: en marxa, 1: acabat).
+ */
 class Tetris {
     /**
      * Amplada del tauler de Tetris en cel·les.
@@ -55,6 +68,20 @@ class Tetris {
         7: "J"
     };
     /**
+     * Colors de cada tipus de peça.
+     * @static
+     * @constant {Object<number, string>}
+     */
+    static PIECE_COLORS = {
+        1: "cyan",
+        2: "yellow",
+        3: "purple",
+        4: "green",
+        5: "red",
+        6: "orange",
+        7: "blue"
+    };
+    /**
      * Nombre de cel·les que ocupa cada tipus de peça.
      * @static
      * @constant {Object<number, number>}
@@ -69,19 +96,32 @@ class Tetris {
         7: 4
     };
 
+    /**
+     * Crea una nova instància del joc Tetris.
+     * @constructor
+     */
     constructor() {
         this.board = null;
         this.currentPiece = null;
         this.nextPiece = null;
-        this.gameState = -1; // 0 = Partida en marxa, 1 = Partida acabada.
+        this.pieceCounter = null;
+        this.gameState = -1;
     }
 
+    /**
+     * Inicialitza el joc creant un tauler buit i les primeres peçes.
+     * @returns {void}
+     */
     initGame() {
         this.board = Array(Tetris.BOARD_HEIGHT);
         for (let i = 0; i < Tetris.BOARD_HEIGHT; i++) {
-            this.board[i] = Array(Tetris.BOARD_WIDTH).fill(0);
+            this.board[i] = Array(Tetris.BOARD_WIDTH);
+            for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
+                this.board[i][j] = {id: 0, type: 0};
+            }
         }
 
+        this.pieceCounter = 0;
         this.currentPiece = this.#createPiece();
         this.nextPiece = this.#createPiece();
         this.gameState = 0;
@@ -89,32 +129,38 @@ class Tetris {
 
     /**
      * Mou la peça actual en la direcció especificada si la nova posició és vàlida.
+     * Si la peça no es pot moure cap avall, la col·loca al tauler.
      *
-     * @param {string} direction - direcció del moviment: "R" (dreta) o "L" (esquerra).
+     * @param {string} direction - Direcció del moviment: "left", "right" o "down".
      * @returns {void}
      */
     movePiece(direction) {
         if (this.gameState !== 0) {
             return;
         }
-        if (direction !== "R" && direction !== "L") {
+        if (!this.#canMove(this.currentPiece, direction)) {
+            if (direction === "down") {
+                this.#placePiece(this.currentPiece);
+                this.currentPiece = this.nextPiece;
+                this.nextPiece = this.#createPiece();
+                this.#checkGameover();
+            }
             return;
         }
 
-        let piece = structuredClone(this.currentPiece);
+        switch (direction) {
+            case "left":
+                this.currentPiece.x--;
+                break;
+            case "right":
+                this.currentPiece.x++;
+                break;
+            case "down":
+                this.currentPiece.y--;
+                break;
+        }
 
-        if (direction === "R") {
-            piece.x++;
-            piece.cells = this.#getPieceCells(piece);
-        }
-        else if (direction === "L") {
-            piece.x--;
-            piece.cells = this.#getPieceCells(piece);
-        }
-
-        if (this.#isValidPosition(piece)) {
-            this.currentPiece = piece;
-        }
+        this.currentPiece.cells = this.#getPieceCells(this.currentPiece);
     }
 
     /**
@@ -122,9 +168,9 @@ class Tetris {
      * @returns {void}
      */
     rotatePiece() {
-       if (this.gameState !== 0) {
-           return;
-       }
+        if (this.gameState !== 0) {
+            return;
+        }
 
         const rotation = this.currentPiece.rotation;
 
@@ -134,16 +180,14 @@ class Tetris {
         else {
             this.currentPiece.rotation = 0;
         }
-        this.currentPiece.cells = this.#getPieceCells(this.currentPiece);
 
-        this.#checkWallKicks(this.currentPiece);
-        this.#checkFloorKicks(this.currentPiece);
+        this.currentPiece.cells = this.#getPieceCells(this.currentPiece);
+        this.#fixPiecePosition(this.currentPiece);
+        this.#fixPieceCollisions(this.currentPiece);
     }
 
     /**
-     * Deixa caure la peça actual una cel·la cap avall i fixa la peça si no es pot fer el moviment.
-     * Si després de fixar la peça hi ha col·lisió, marca el joc com a acabat.
-     *
+     * Deixa caure la peça actual fins que col·lisioni amb el terra o una altra peça.
      * @returns {void}
      */
     dropPiece() {
@@ -151,20 +195,15 @@ class Tetris {
             return;
         }
 
-        let piece = structuredClone(this.currentPiece);
-
-        piece.y--;
-        piece.cells = this.#getPieceCells(piece);
-
-        if (this.#isValidPosition(piece)) {
-            this.currentPiece = piece;
+        while (this.#canMove(this.currentPiece, "down")) {
+            this.currentPiece.y--;
+            this.currentPiece.cells = this.#getPieceCells(this.currentPiece);
         }
-        else {
-            this.#placePiece();
-            // Comprova si hi ha gameover.
-            if (this.#hasCollision(this.currentPiece))
-                this.gameState = 1;
-        }
+
+        this.#placePiece(this.currentPiece);
+        this.currentPiece = this.nextPiece;
+        this.nextPiece = this.#createPiece();
+        this.#checkGameover();
     }
 
     /**
@@ -179,236 +218,183 @@ class Tetris {
         let linesCompleted = Array();
 
         for (let i = Tetris.BOARD_HEIGHT-1; i >= 0; i--) {
-            let lineComplete = true;
-
+            let lineCompleted = true;
             let j = 0;
-            while (j < Tetris.BOARD_WIDTH && lineComplete) {
-                if (this.board[i][j] === 0) {
-                    lineComplete = false;
+            while (j < Tetris.BOARD_WIDTH && lineCompleted) {
+                if (this.board[i][j].id === 0) {
+                    lineCompleted = false;
                 }
                 else j++;
             }
-
-            if (lineComplete) {
+            if (lineCompleted) {
                 linesCompleted.push(i);
             }
         }
 
         this.#eraseLines(linesCompleted);
     }
-	
-	// PER TREURE/MODIFICAR
-    display() {
-        console.clear();
-        console.log("=== TETRIS ===");
-        console.log(`Current Piece: ${Tetris.PIECE_TYPES[this.currentPiece.type]}`);
-        console.log(`Next Piece: ${Tetris.PIECE_TYPES[this.nextPiece.type]}`);
-        console.log("");
 
-        // Crea una còpia del board per mostrar.
-        let displayBoard = Array(Tetris.BOARD_HEIGHT);
-        for (let i = 0; i < Tetris.BOARD_HEIGHT; i++) {
-            displayBoard[i] = Array(Tetris.BOARD_WIDTH);
-
-            for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
-                displayBoard[i][j] = this.board[i][j];
-            }
-        }
-
-        // Afegeix la peça actual al display
-        for (let i = 0; i < this.currentPiece.cells.length; i++) {
-            const x = this.currentPiece.cells[i][0];
-            const y = this.currentPiece.cells[i][1];
-
-            if (x >= 0 && x < Tetris.BOARD_WIDTH && y >= 0 && y < Tetris.BOARD_HEIGHT) {
-                displayBoard[y][x] = this.currentPiece.type;
-            }
-        }
-
-        // Mostra el board.
-        for (let i = Tetris.BOARD_HEIGHT-1; i >= 0; i--) {
-            let line = "";
-            for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
-                    line += `${displayBoard[i][j]} `;
-            }
-            console.log(line);
-        }
-        console.log("");
-        console.log("Controls: A/D = Left/Right, S = Drop");
+    /**
+     * Comprova si el joc ha acabat.
+     * @returns {boolean} true si el joc ha acabat.
+     */
+    isGameover() {
+        return this.gameState === 1;
     }
 
-	// PER TREURE/MODIFICAR
-    play() {
-        this.initGame();
+    /**
+     *
+     * @param {WebGLRenderer} renderer
+     */
+    render(renderer) {
 
-        const gameLoop = () => {
-            if (this.gameState === 0) {
-                this.display();
-
-                // Estratègia de joc més intel·ligent
-                const randomMove = Math.random();
-/*
-                if (randomMove < 0.1) {
-                    // 10% de probabilitat de rotar
-                    this.rotatePiece();
-                } else if (randomMove < 0.3) {
-                    // 20% de probabilitat de moure esquerra
-                    this.movePiece('L');
-                } else if (randomMove < 0.5) {
-                    // 20% de probabilitat de moure dreta
-                    this.movePiece('R');
-                } else {
-                    // 50% de probabilitat de deixar caure
-                    this.dropPiece();
-                }*/
-
-                if (randomMove < 0.5) {
-                    // 10% de probabilitat de rotar
-                    this.rotatePiece();
-                } else {
-                    // 50% de probabilitat de deixar caure
-                    this.dropPiece();
-                }
-
-                // Comprova línies després de cada moviment
-                this.checkLines();
-
-                // Si el joc ha acabat, mostra missatge
-                if (this.gameState === 1) {
-                    console.log("=== GAME OVER ===");
-                    return;
-                }
-
-                setTimeout(gameLoop, 800); // Velocitat lleugerament més ràpida
-            }
-        };
-
-        gameLoop();
     }
 
     /* ------------------------------ FUNCIONS PRIVADES ------------------------------ */
 
     /**
-     * Ajusta la peça lateralment perquè entri dins dels límits esquerre i dret del tauler.
-     * @description Desplaça la peça i recalcula les cel·les fins que quedi dins dels límits.
-     * @param {TetrisPiece} piece - peça a ajustar.
+     * Comprova si la peça actual ha causat game over.
+     * @private
      * @returns {void}
      */
-    #checkWallKicks(piece) {
-        while (!this.#isWithinLeftBound(piece)) {
-            piece.x += 1;
-            piece.cells = this.#getPieceCells(piece);
-        }
+    #checkGameover() {
+        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[this.currentPiece.type];
 
-        while (!this.#isWithinRightBound(piece)) {
-            piece.x -= 1;
-            piece.cells = this.#getPieceCells(piece);
+        let counter = 0;
+        for (let i = 0; i < totalCells; i++) {
+            const y = this.currentPiece.cells[i][1];
+            if (y >= Tetris.BOARD_HEIGHT) {
+                counter++;
+            }
+        }
+        if (counter === totalCells) {
+            this.gameState = 1;
         }
     }
 
     /**
-     * Ajusta la peça verticalment perquè entri dins dels límits superior i inferior del tauler.
-     * @description Desplaça la peça i recalcula les cel·les fins que quedi dins dels límits.
-     * @param {TetrisPiece} piece - peça a ajustar.
+     * Col·loca una peça al tauler marcant les seves cel·les com ocupades.
+     * @private
+     * @param {TetrisPiece} piece - Peça a col·locar al tauler.
      * @returns {void}
      */
-    #checkFloorKicks(piece) {
-        while (!this.#isWithinTopBound(this.currentPiece)) {
-            piece.y -= 1;
-            piece.cells = this.#getPieceCells(piece);
-        }
+    #placePiece(piece) {
+        const type = piece.type;
+        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[type];
 
-        while (!this.#isWithinBottomBound(this.currentPiece)) {
-            piece.y += 1;
-            piece.cells = this.#getPieceCells(piece);
+        this.pieceCounter++;
+        for (let i = 0; i < totalCells; i++) {
+            const x = piece.cells[i][0];
+            const y = piece.cells[i][1];
+
+            this.board[y][x] = {id: this.pieceCounter, type: type};
+        }
+    }
+
+    /**
+     * Comprova si una peça pot moure's en una direcció específica.
+     * @private
+     * @param {TetrisPiece} piece - La peça a moure.
+     * @param {string} direction - Direcció del moviment: 'left', 'right', 'down'.
+     * @returns {boolean} true si el moviment és possible.
+     */
+    #canMove(piece, direction) {
+        switch (direction) {
+            case 'left':
+                return !this.#hasCollision(piece, -1, 0);
+            case 'right':
+                return !this.#hasCollision(piece, 1, 0);
+            case 'down':
+                return !this.#hasCollision(piece, 0, -1);
+            default:
+                return false;
         }
     }
 
     /**
      * Elimina les files indicades del tauler i insereix files buides a la part superior.
      * Manté la mida del tauler constant.
-     * @param {number[]} lines - índexs de files a eliminar.
+     * @private
+     * @param {number[]} lines - Índexs de files a eliminar.
      * @returns {void}
      */
     #eraseLines(lines) {
         for (let i = 0; i < lines.length; i++) {
-            this.board.splice(lines[i], 1);                         // Elimina la línia.
-            this.board.unshift(Array(Tetris.BOARD_WIDTH).fill(0));  // Afegeix línia buida al principi.
+            this.board.splice(lines[i], 1);
+
+            let newLine = Array(Tetris.BOARD_WIDTH);
+            for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
+                newLine[j] = {id: 0, type: 0};
+            }
+            this.board.unshift(newLine);
         }
     }
 
     /**
-     * Col·loca la peça actual al tauler, substituint les cel·les corresponents pel seu tipus.
-     * Després, avança a la següent peça.
+     * Ajusta la posició d'una peça per assegurar-se que estigui dins dels límits del tauler.
+     *
+     * @private
+     * @param {TetrisPiece} piece - La peça que s'ha d'ajustar.
      * @returns {void}
+     * @description
+     * La funció realitza els següents ajustaments en aquest ordre:
+     * 1. Si la peça surt pel costat esquerre, la mou cap a la dreta
+     * 2. Si la peça surt pel costat dret, la mou cap a l'esquerra
+     * 3. Si la peça surt per la part inferior, la mou cap amunt
+     *
+     * Cada ajustament modifica tant la posició central de la peça
+     * com les coordenades absolutes de totes les seves cel·les.
      */
-    #placePiece() {
-        const type = this.currentPiece.type;
-        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[type];
-
-        for (let i = 0; i < totalCells; i++) {
-            const x = this.currentPiece.cells[i][0];
-            const y = this.currentPiece.cells[i][1];
-
-            this.board[y][x] = type;
-        }
-
-        this.currentPiece = this.nextPiece;
-        this.nextPiece = this.#createPiece();
-    }
-
-    /**
-     * Comprova si la posició de la peça és vàlida (dins límits i sense col·lisions).
-     * @param {TetrisPiece} piece - peça a validar.
-     * @returns {boolean} cert si és vàlida.
-     */
-    #isValidPosition(piece) {
-        return this.#isWithinBounds(piece) && !this.#hasCollision(piece);
-    }
-
-    /**
-     * Comprova si totes les cel·les de la peça es troben dins dels límits del tauler.
-     * @param {TetrisPiece} piece - peça a comprovar.
-     * @returns {boolean} cert si totes les cel·les són dins el tauler.
-     */
-    #isWithinBounds(piece) {
+    #fixPiecePosition(piece) {
         const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[piece.type];
 
-        for (let i = 0; i < totalCells; i++) {
-            const x = piece.cells[i][0];
-            const y = piece.cells[i][1];
-
-            if (x < 0 || x >= Tetris.BOARD_WIDTH || y < 0 || y >= Tetris.BOARD_HEIGHT) {
-                return false;
+        // Manté la peça dins del límit lateral esquerre.
+        while (!this.#isWithinLeftBound(piece)) {
+            piece.x += 1;
+            for (let i = 0; i < totalCells; i++) {
+                piece.cells[i][0] += 1;
             }
         }
 
-        return true;
+        // Manté la peça dins del límit lateral dret.
+        while (!this.#isWithinRightBound(piece)) {
+            piece.x -= 1;
+            for (let i = 0; i < totalCells; i++) {
+                piece.cells[i][0] -= 1;
+            }
+        }
+
+        // Manté la peça dins del límit vertical inferior.
+        while (!this.#isWithinBottomBound(piece)) {
+            piece.y += 1;
+            for (let i = 0; i < totalCells; i++) {
+                piece.cells[i][1] += 1;
+            }
+        }
     }
 
     /**
-     * Comprova si alguna cel·la de la peça col·lisiona amb una cel·la ocupada del tauler.
-     * @param {TetrisPiece} piece - peça a comprovar.
-     * @returns {boolean} cert si hi ha col·lisió.
+     * Ajusta la posició d'una peça per evitar col·lisions amb altres peces.
+     * @private
+     * @param {TetrisPiece} piece - La peça que s'ha d'ajustar.
+     * @returns {void}
      */
-    #hasCollision(piece) {
+    #fixPieceCollisions(piece) {
         const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[piece.type];
 
-        for (let i = 0; i < totalCells; i++) {
-            const x = piece.cells[i][0];
-            const y = piece.cells[i][1];
-
-            if (this.board[y][x] !== 0)
-                return true;
+        while (this.#hasCollision(piece, 0, 0)) {
+            piece.y += 1;
+            for (let i = 0; i < totalCells; i++) {
+                piece.cells[i][1] += 1;
+            }
         }
-
-        return false;
     }
 
     /**
      * Crea una nova peça de tipus aleatori, posicionada a un punt central i amb rotació 0.
      * També calcula les seves cel·les inicials.
-     * @returns {TetrisPiece} la peça creada.
+     * @private
+     * @returns {TetrisPiece} La peça creada.
      */
     #createPiece() {
         let piece = new TetrisPiece();
@@ -416,17 +402,21 @@ class Tetris {
 
         piece.x = Math.floor((Tetris.BOARD_WIDTH-1)/2);
         piece.y = Tetris.BOARD_HEIGHT-2;
-		piece.rotation = 0;
+        piece.rotation = 0;
         piece.type = randomType;
         piece.cells = this.#getPieceCells(piece);
+
+        // Evita col·lisions al crear-se la peça.
+        this.#fixPieceCollisions(piece);
 
         return piece;
     }
 
     /**
      * Aplica una rotació de 90° en sentit horari a un punt 2D.
-     * @param {[number, number]} coords - punt a rotar.
-     * @returns {[number, number]} el punt rotat.
+     * @private
+     * @param {[number, number]} coords - Punt a rotar.
+     * @returns {[number, number]} El punt rotat.
      */
     #rotateClockwise([x, y]) {
         return [y, -x];
@@ -434,8 +424,9 @@ class Tetris {
 
     /**
      * Aplica una rotació de 90° en sentit antihorari a un punt 2D.
-     * @param {[number, number]} coords - punt a rotar.
-     * @returns {[number, number]} el punt rotat.
+     * @private
+     * @param {[number, number]} coords - Punt a rotar.
+     * @returns {[number, number]} El punt rotat.
      */
     #rotateCounterClockwise([x, y]) {
         return [-y, x];
@@ -444,8 +435,9 @@ class Tetris {
     /**
      * Calcula les coordenades de les cel·les que formen la peça, a partir
      * de la seva posició central, tipus i rotació.
-     * @param {TetrisPiece} piece - peça d'entrada.
-     * @returns {number[][]} llista de cel·les que ocupa la peça.
+     * @private
+     * @param {TetrisPiece} piece - Peça d'entrada.
+     * @returns {number[][]} Llista de cel·les que ocupa la peça.
      */
     #getPieceCells(piece) {
         const type = piece.type;
@@ -524,9 +516,10 @@ class Tetris {
 
     /**
      * Genera un enter aleatori en un rang de valors.
-     * @param {number} min - valor mínim (inclòs).
-     * @param {number} max - valor màxim (inclòs).
-     * @returns {number} enter generat.
+     * @private
+     * @param {number} min - Valor mínim (inclòs).
+     * @param {number} max - Valor màxim (inclòs).
+     * @returns {number} Enter generat.
      */
     #getRandomNumber(min, max) {
         const minCeiled = Math.ceil(min);
@@ -535,8 +528,38 @@ class Tetris {
     }
 
     /**
+     * Detecta si una peça col·lisiona amb altres peces o amb els límits del tauler.
+     * @private
+     * @param {TetrisPiece} piece - La peça per la qual es vol comprovar la col·lisió.
+     * @param {number} [offsetX=0] - Desplaçament horitzontal per comprovar (per moviments).
+     * @param {number} [offsetY=0] - Desplaçament vertical per comprovar (per moviments).
+     * @returns {boolean} true si hi ha col·lisió.
+     */
+    #hasCollision(piece, offsetX = 0, offsetY = 0) {
+        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[piece.type];
+
+        for (let i = 0; i < totalCells; i++) {
+            const x = piece.cells[i][0] + offsetX;
+            const y = piece.cells[i][1] + offsetY;
+
+            // Comprova si la cel·la es troba fora dels límits del tauler.
+            if (x < 0 || x >= Tetris.BOARD_WIDTH || y < 0) {
+                return true;
+            }
+
+            // Comprova si la cel·la està ocupada per una peça ja col·locada.
+            if (y < Tetris.BOARD_HEIGHT && this.board[y][x].id !== 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Comprova si totes les cel·les de la peça estan dins del límit esquerre.
-     * @param {TetrisPiece} piece - peça a comprovar.
+     * @private
+     * @param {TetrisPiece} piece - Peça a comprovar.
      * @returns {boolean} cert si està dins del límit esquerre.
      */
     #isWithinLeftBound(piece) {
@@ -552,7 +575,8 @@ class Tetris {
 
     /**
      * Comprova si totes les cel·les de la peça estan dins del límit dret.
-     * @param {TetrisPiece} piece - peça a comprovar.
+     * @private
+     * @param {TetrisPiece} piece - Peça a comprovar.
      * @returns {boolean} cert si està dins del límit dret.
      */
     #isWithinRightBound(piece) {
@@ -567,24 +591,9 @@ class Tetris {
     }
 
     /**
-     * Comprova si totes les cel·les de la peça estan dins del límit superior.
-     * @param {TetrisPiece} piece - peça a comprovar.
-     * @returns {boolean} cert si està dins del límit superior.
-     */
-    #isWithinTopBound(piece) {
-        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[piece.type];
-        for (let i = 0; i < totalCells; i++) {
-            const y = piece.cells[i][1];
-            if (y >= Tetris.BOARD_HEIGHT) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * Comprova si totes les cel·les de la peça estan dins del límit inferior.
-     * @param {TetrisPiece} piece - peça a comprovar.
+     * @private
+     * @param {TetrisPiece} piece - Peça a comprovar.
      * @returns {boolean} cert si està dins del límit inferior.
      */
     #isWithinBottomBound(piece) {
@@ -592,6 +601,23 @@ class Tetris {
         for (let i = 0; i < totalCells; i++) {
             const y = piece.cells[i][1];
             if (y < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Comprova si totes les cel·les de la peça estan dins del límit superior.
+     * @private
+     * @param {TetrisPiece} piece - Peça a comprovar.
+     * @returns {boolean} cert si està dins del límit superior.
+     */
+    #isWithinTopBound(piece) {
+        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[piece.type];
+        for (let i = 0; i < totalCells; i++) {
+            const y = piece.cells[i][1];
+            if (y >= Tetris.BOARD_HEIGHT) {
                 return false;
             }
         }

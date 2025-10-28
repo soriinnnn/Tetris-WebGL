@@ -11,14 +11,43 @@
     <script src="main.js"></script>
     <script src="tetris.js"></script>
     <script src="renderer.js"></script>
-    <script id="vertexShader" type="x-shader/x-vertex" src="vertex.glsl"></script>
-    <script id="fragmentShader" type="x-shader/x-fragment" src="fragment.glsl"></script>
+
+    <script id="vertexShader" type="x-shader/x-vertex"
+    >#version 300 es
+
+     in vec3 vertexPos;
+
+     void main()
+     {
+         gl_Position = vec4(vertexPos, 1.0);
+     }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment"
+    >#version 300 es
+
+     precision mediump float;
+     out vec4 fragColor;
+
+     void main()
+     {
+         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+     }
+    </script>
 </head>
 
 <body>
-    <canvas id="tetrisCanvas">
-        El navegador no soporta HTML5.
-    </canvas>
+    <div id="gameContainer">
+        <div id="controls">
+            <button id="startButton">Start Game</button>
+            <button id="pauseButton" disabled>Pause</button>
+            <button id="restartButton" disabled>Restart</button>
+        </div>
+
+        <canvas id="tetrisCanvas">
+            El navegador no soporta HTML5.
+        </canvas>
+    </div>
 </body>
 
 </html>
