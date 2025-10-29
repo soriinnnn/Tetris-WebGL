@@ -76,7 +76,7 @@ class TetrisRenderer {
         this.#drawLines();
     }
 
-    makeBoard(rows, columns) {
+    static makeBoard(rows, columns) {
         if (rows < 2) rows = 2;
         if (columns < 2) columns = 2;
 

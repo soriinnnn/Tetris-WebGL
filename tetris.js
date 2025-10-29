@@ -26,6 +26,26 @@ class TetrisPiece {
 }
 
 /**
+ * Classe que representa l’estat actual del joc.
+ *
+ * @class
+ * @property {number[][] | null} grid - Tauler de joc.
+ * @property {TetrisPiece | null} currentPiece - Peça actual.
+ * @property {TetrisPiece | null} nextPiece - Peça següent.
+ */
+class BoardSnapshot {
+    /**
+     * Crea una nova instància de BoardSnapshot.
+     * @constructor
+     */
+    constructor() {
+        this.grid = null;
+        this.currentPiece = null;
+        this.nextPiece = null;
+    }
+}
+
+/**
  * Classe principal que gestiona la lògica del joc Tetris.
  *
  * @class Tetris
@@ -241,16 +261,17 @@ class Tetris {
     }
 
     /**
+     * Retorna una snapshot de l’estat actual del tauler.
      *
-     * @param {TetrisRenderer} renderer
+     * @returns {BoardSnapshot} l'estat actual del tauler.
      */
-    render(renderer) {
-        let board = renderer.makeBoard(Tetris.BOARD_HEIGHT, Tetris.BOARD_WIDTH);
+    boardSnapshot() {
+        let snapshot = new BoardSnapshot();
+        snapshot.grid = structuredClone(this.board);
+        snapshot.currentPiece = structuredClone(this.currentPiece);
+        snapshot.nextPiece = structuredClone(this.nextPiece);
 
-        console.log(board);
-
-        renderer.initBuffers(board);
-        renderer.draw();
+        return snapshot;
     }
 
     /* ------------------------------ FUNCIONS PRIVADES ------------------------------ */

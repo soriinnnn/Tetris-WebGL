@@ -10,7 +10,8 @@ var previousDropTimeMs = 0;
 var pauseStartTimeMs = 0;
 var animationFrameId = null;
 
-var tetris, renderer;
+var tetris = null;
+var renderer = null;
 var isPaused = false;
 var pressedKeys = new Set();
 
@@ -23,6 +24,7 @@ function initRenderer() {
     let canvas;
     let vertexShader;
     let fragmentShader;
+    let model;
 
     canvas = document.getElementById("tetrisCanvas");
     renderer = new TetrisRenderer(canvas);
@@ -30,6 +32,10 @@ function initRenderer() {
     vertexShader = document.getElementById("vertexShader");
     fragmentShader = document.getElementById("fragmentShader");
     renderer.init(vertexShader.text, fragmentShader.text);
+
+    // A saber...
+    model = TetrisRenderer.makeBoard(Tetris.BOARD_HEIGHT, Tetris.BOARD_WIDTH);
+    renderer.initBuffers(model);
 
     console.log("WebGL inicialitzat amb èxit.");
     return renderer;
@@ -141,6 +147,15 @@ function checkInput() {
 }
 
 /**
+ * A saber...
+ */
+function render() {
+    let snapshot = tetris.boardSnapshot();
+
+    renderer.draw();
+}
+
+/**
  * Actualitza la lògica del joc: fa caure la peça automàticament cada cert temps
  * i comprova l'entrada de teclat, sempre que el joc no estigui pausat.
  * @param {number} currentTimeMs - Temps actual (mil·lisegons).
@@ -183,13 +198,13 @@ function gameLoop() {
 
         if (deltaTimeMs >= FRAME_INTERVAL_MS) {
             update(currentTimeMs);
+            render();
 
             // Sincronitza el següent frame.
             // Si deltaTimeMs = 20 ms i FRAME_INTERVAL_MS = 17 ms.
             // És resta a currentTime els ms sobrants per evitar problemes en la següent iteració.
             previousTimeMs = currentTimeMs - (deltaTimeMs % FRAME_INTERVAL_MS);
         }
-        tetris.render(renderer);
         if (!tetris.isGameover()) {
             gameLoop();
         }
@@ -220,8 +235,6 @@ function main() {
 
     setupButtons();
     setupInput();
-
-    tetris.render(renderer);
 }
 
 document.addEventListener("DOMContentLoaded", main);
