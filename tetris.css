@@ -35,27 +35,16 @@ button {
 }
 
 #startButton {
-    background-color: #4CAF50;
+    background-color: #33c33a;
     color: white;
-}
-
-#startButton:hover:not(:disabled) {
-    background-color: #45a049;
 }
 
 #pauseButton, #restartButton {
-    background-color: #f44336;
+    background-color: #cccccc;
     color: white;
 }
 
-#pauseButton:hover:not(:disabled),
-#restartButton:hover:not(:disabled) {
-    background-color: #da190b;
-}
-
 button:disabled {
-    background-color: #cccccc;
-    color: #666666;
     cursor: not-allowed;
 }
 

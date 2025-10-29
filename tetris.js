@@ -246,7 +246,7 @@ class Tetris {
      *
      * @param {WebGLRenderer} renderer
      */
-    render(renderer) {
+    draw(renderer) {
 
     }
 
