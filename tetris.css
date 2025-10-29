@@ -49,8 +49,6 @@ button:disabled {
 }
 
 canvas {
-    width: 600px;
-    height: 800px;
     border: 2px solid black;
     background: #000000;
     display: block;

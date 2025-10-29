@@ -16,7 +16,7 @@ var pressedKeys = new Set();
 
 /**
  * Inicialitza el renderer WebGL encarregat de dibuixar el joc.
- * @returns {WebGLRenderer} Instància inicialitzada del renderer.
+ * @returns {TetrisRenderer} Instància inicialitzada del renderer.
  */
 function initRenderer() {
     let renderer;
@@ -25,7 +25,7 @@ function initRenderer() {
     let fragmentShader;
 
     canvas = document.getElementById("tetrisCanvas");
-    renderer = new WebGLRenderer(canvas);
+    renderer = new TetrisRenderer(canvas);
 
     vertexShader = document.getElementById("vertexShader");
     fragmentShader = document.getElementById("fragmentShader");
@@ -189,7 +189,7 @@ function gameLoop() {
             // És resta a currentTime els ms sobrants per evitar problemes en la següent iteració.
             previousTimeMs = currentTimeMs - (deltaTimeMs % FRAME_INTERVAL_MS);
         }
-        tetris.draw(renderer);
+        tetris.render(renderer);
         if (!tetris.isGameover()) {
             gameLoop();
         }
@@ -220,6 +220,8 @@ function main() {
 
     setupButtons();
     setupInput();
+
+    tetris.render(renderer);
 }
 
 document.addEventListener("DOMContentLoaded", main);

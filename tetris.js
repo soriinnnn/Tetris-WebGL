@@ -244,10 +244,15 @@ class Tetris {
 
     /**
      *
-     * @param {WebGLRenderer} renderer
+     * @param {TetrisRenderer} renderer
      */
-    draw(renderer) {
+    render(renderer) {
+        let board = renderer.makeBoard(Tetris.BOARD_HEIGHT, Tetris.BOARD_WIDTH);
 
+        console.log(board);
+
+        renderer.initBuffers(board);
+        renderer.draw();
     }
 
     /* ------------------------------ FUNCIONS PRIVADES ------------------------------ */

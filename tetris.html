@@ -15,11 +15,13 @@
     <script id="vertexShader" type="x-shader/x-vertex"
     >#version 300 es
 
-     in vec3 vertexPos;
+     uniform vec2 uniformOffset;
+     in vec2 vertexPos;
 
      void main()
      {
-         gl_Position = vec4(vertexPos, 1.0);
+         vec2 pos = vertexPos + uniformOffset;
+         gl_Position = vec4(pos, 0.0, 1.0);
      }
     </script>
 
@@ -27,11 +29,12 @@
     >#version 300 es
 
      precision mediump float;
+     uniform vec4 uniformColor;
      out vec4 fragColor;
 
      void main()
      {
-         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+         fragColor = uniformColor;
      }
     </script>
 </head>
@@ -44,7 +47,7 @@
             <button id="restartButton" disabled>Restart</button>
         </div>
 
-        <canvas id="tetrisCanvas">
+        <canvas id="tetrisCanvas" width="400" height="800">
             El navegador no soporta HTML5.
         </canvas>
     </div>
