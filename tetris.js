@@ -104,7 +104,6 @@ class Tetris {
         this.board = null;
         this.currentPiece = null;
         this.nextPiece = null;
-        this.pieceCounter = null;
         this.gameState = -1;
     }
 
@@ -117,11 +116,10 @@ class Tetris {
         for (let i = 0; i < Tetris.BOARD_HEIGHT; i++) {
             this.board[i] = Array(Tetris.BOARD_WIDTH);
             for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
-                this.board[i][j] = {id: 0, type: 0};
+                this.board[i][j] = 0;
             }
         }
 
-        this.pieceCounter = 0;
         this.currentPiece = this.#createPiece();
         this.nextPiece = this.#createPiece();
         this.gameState = 0;
@@ -221,7 +219,7 @@ class Tetris {
             let lineCompleted = true;
             let j = 0;
             while (j < Tetris.BOARD_WIDTH && lineCompleted) {
-                if (this.board[i][j].id === 0) {
+                if (this.board[i][j] === 0) {
                     lineCompleted = false;
                 }
                 else j++;
@@ -287,12 +285,11 @@ class Tetris {
         const type = piece.type;
         const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[type];
 
-        this.pieceCounter++;
         for (let i = 0; i < totalCells; i++) {
             const x = piece.cells[i][0];
             const y = piece.cells[i][1];
 
-            this.board[y][x] = {id: this.pieceCounter, type: type};
+            this.board[y][x] = type;
         }
     }
 
@@ -325,12 +322,9 @@ class Tetris {
      */
     #eraseLines(lines) {
         for (let i = 0; i < lines.length; i++) {
-            this.board.splice(lines[i], 1);
+            const newLine = new Array(Tetris.BOARD_WIDTH).fill(0);
 
-            let newLine = Array(Tetris.BOARD_WIDTH);
-            for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
-                newLine[j] = {id: 0, type: 0};
-            }
+            this.board.splice(lines[i], 1);
             this.board.unshift(newLine);
         }
     }
@@ -553,7 +547,7 @@ class Tetris {
             }
 
             // Comprova si la cel·la està ocupada per una peça ja col·locada.
-            if (y < Tetris.BOARD_HEIGHT && this.board[y][x].id !== 0) {
+            if (y < Tetris.BOARD_HEIGHT && this.board[y][x] !== 0) {
                 return true;
             }
         }

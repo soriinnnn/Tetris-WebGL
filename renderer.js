@@ -114,7 +114,7 @@ class TetrisRenderer {
     /* ------------------------------ FUNCIONS PRIVADES ------------------------------ */
 
     #drawLines() {
-        this.context.drawElements(this.context.LINES, 8, this.context.UNSIGNED_SHORT, 0);
+        this.context.drawElements(this.context.LINES, this.indexLength, this.context.UNSIGNED_SHORT, 0);
     }
 
     #drawTriangles() {
