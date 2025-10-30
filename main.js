@@ -4,9 +4,11 @@
 const MAX_FPS = 30;
 const FRAME_INTERVAL_MS = 1000 / MAX_FPS;
 const GAME_DROP_INTERVAL_MS = 1000;
+const GAME_INPUT_INTERVAL_MS = 100;
 
-var previousTimeMs = 0;
-var previousDropTimeMs = 0;
+var lastFrameTimeMs = 0;
+var lastDropTimeMs = 0;
+var lastInputTimeMs = 0;
 var pauseStartTimeMs = 0;
 var animationFrameId = null;
 
@@ -24,7 +26,6 @@ function initRenderer() {
     let canvas;
     let vertexShader;
     let fragmentShader;
-    let model;
 
     canvas = document.getElementById("tetrisCanvas");
     renderer = new TetrisRenderer(canvas);
@@ -52,7 +53,10 @@ function isKeyDown(key) {
  */
 function setupInput() {
     document.addEventListener("keydown", (e) => pressedKeys.add(e.key));
-    document.addEventListener("keyup", (e) => pressedKeys.delete(e.key));
+    document.addEventListener("keyup", (e) => {
+        pressedKeys.delete(e.key)
+        lastInputTimeMs = 0;
+    });
 }
 
 /**
@@ -97,7 +101,8 @@ function pauseGame() {
     else {
         pauseButton.style.backgroundColor = "#1688dd";
         pauseButton.textContent = "Pause";
-        previousDropTimeMs += performance.now() - pauseStartTimeMs;
+        lastDropTimeMs += performance.now() - pauseStartTimeMs;
+        lastInputTimeMs += performance.now() - pauseStartTimeMs;
     }
 }
 
@@ -124,22 +129,29 @@ function startGame() {
  * Processa les tecles premudes i mou la peça o llança accions (moure, rotar, drop).
  * @returns {void}
  */
-function checkInput() {
+function checkInput(currentTimeMs) {
+    if (currentTimeMs - lastInputTimeMs < GAME_INPUT_INTERVAL_MS && lastInputTimeMs !== 0) {
+        return;
+    }
+
     if (isKeyDown("ArrowLeft")) {
         tetris.movePiece("left");
     }
     else if (isKeyDown("ArrowRight")) {
         tetris.movePiece("right");
     }
-    else if (isKeyDown("ArrowDown")) {
+
+    if (isKeyDown("ArrowDown")) {
         tetris.movePiece("down");
     }
-    else if (isKeyDown("ArrowUp")) {
+    if (isKeyDown("ArrowUp")) {
         tetris.rotatePiece();
     }
-    else if (isKeyDown("Space")) {
+    if (isKeyDown("Space")) {
         tetris.dropPiece();
     }
+
+    lastInputTimeMs = currentTimeMs;
 }
 
 /**
@@ -184,14 +196,13 @@ function update(currentTimeMs) {
         return;
     }
 
-    if (currentTimeMs - previousDropTimeMs >= GAME_DROP_INTERVAL_MS) {
+    if (currentTimeMs - lastDropTimeMs >= GAME_DROP_INTERVAL_MS) {
         tetris.movePiece("down");
         tetris.checkLines();
-        previousDropTimeMs = currentTimeMs;
-
+        lastDropTimeMs = currentTimeMs;
     }
 
-    checkInput();
+    checkInput(currentTimeMs);
 }
 
 /**
@@ -212,7 +223,7 @@ function stopGameLoop() {
  */
 function gameLoop() {
     animationFrameId = requestAnimationFrame((currentTimeMs) => {
-        const deltaTimeMs = currentTimeMs - previousTimeMs;
+        const deltaTimeMs = currentTimeMs - lastFrameTimeMs;
 
         if (deltaTimeMs >= FRAME_INTERVAL_MS) {
             update(currentTimeMs);
@@ -221,8 +232,9 @@ function gameLoop() {
             // Sincronitza el següent frame.
             // Si deltaTimeMs = 20 ms i FRAME_INTERVAL_MS = 17 ms.
             // És resta a currentTime els ms sobrants per evitar problemes en la següent iteració.
-            previousTimeMs = currentTimeMs - (deltaTimeMs % FRAME_INTERVAL_MS);
+            lastFrameTimeMs = currentTimeMs - (deltaTimeMs % FRAME_INTERVAL_MS);
         }
+
         if (!tetris.isGameover()) {
             gameLoop();
         }
@@ -237,8 +249,9 @@ function play() {
     stopGameLoop();
     tetris.initGame();
     isPaused = false;
-    previousTimeMs = 0;
-    previousDropTimeMs = 0;
+    lastFrameTimeMs = 0;
+    lastDropTimeMs = 0;
+    lastInputTimeMs = 0;
     pauseStartTimeMs = 0;
     gameLoop();
 }
