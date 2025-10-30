@@ -49,7 +49,6 @@ button:disabled {
 }
 
 canvas {
-    border: 2px solid black;
     background: #000000;
     display: block;
 

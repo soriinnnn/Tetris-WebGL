@@ -31,11 +31,7 @@ function initRenderer() {
 
     vertexShader = document.getElementById("vertexShader");
     fragmentShader = document.getElementById("fragmentShader");
-    renderer.init(vertexShader.text, fragmentShader.text);
-
-    // A saber...
-    model = TetrisRenderer.makeBoard(Tetris.BOARD_HEIGHT, Tetris.BOARD_WIDTH);
-    renderer.initBuffers(model);
+    renderer.init(vertexShader.text, fragmentShader.text, Tetris.BOARD_HEIGHT, Tetris.BOARD_WIDTH);
 
     console.log("WebGL inicialitzat amb èxit.");
     return renderer;
@@ -150,9 +146,31 @@ function checkInput() {
  * A saber...
  */
 function render() {
-    let snapshot = tetris.boardSnapshot();
+    const snapshot = tetris.gameSnapshot();
+    const currentPieceType = snapshot.currentPiece.type;
+    let colors = []; // Array de colors per a cada cel·la del tauler.
 
-    renderer.draw();
+    for (let i = 0; i < Tetris.TOTAL_CELLS_PIECE_TYPES[currentPieceType]; i++) {
+        const x = snapshot.currentPiece.cells[i][0];
+        const y = snapshot.currentPiece.cells[i][1];
+
+        snapshot.board[y][x] = currentPieceType;
+    }
+
+    for (let i = 0; i < Tetris.BOARD_HEIGHT; i++) {
+        for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
+            let type = snapshot.board[i][j];
+
+            if (type > 0) {
+                colors.push(Tetris.PIECE_COLORS[type]);
+            }
+            else {
+                colors.push(Tetris.EMPTY_CELL_COLOR);
+            }
+        }
+    }
+
+    renderer.draw(colors);
 }
 
 /**

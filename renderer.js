@@ -7,6 +7,12 @@
  * @class TetrisRenderer
  */
 class TetrisRenderer {
+    /**
+     * Color per defecte de les línies del tauler (WebGL).
+     * @static
+     * @type {number[]}
+     */
+    static LINES_COLOR = [1.0, 1.0, 1.0, 1.0];
 
     /**
      * Crea una instància del renderer WebGL2.
@@ -17,6 +23,7 @@ class TetrisRenderer {
         this.context = null;
         this.program = null;
         this.canvas = canvas;
+        this.model = null;
 
         this.vertexBuffer = null;
         this.indexBuffer = null;
@@ -33,46 +40,33 @@ class TetrisRenderer {
      * @param {string} fragmentSrc - Codi font del fragment shader.
      * @throws {string} Error si WebGL2 no està disponible o els shaders no compilen.
      */
-    init(vertexSrc, fragmentSrc) {
+    init(vertexSrc, fragmentSrc, rows, columns) {
         this.#getWebGLContext();
         this.#initShaderProgram(vertexSrc, fragmentSrc);
         this.context.useProgram(this.program);
+        this.model = TetrisRenderer.makeBoard(rows, columns);
 
         this.vertexPosAttribute = this.context.getAttribLocation(this.program, "vertexPos");
         this.context.enableVertexAttribArray(this.vertexPosAttribute);
         this.fragmentColor = this.context.getUniformLocation(this.program, "uniformColor");
         this.vertexOffset = this.context.getUniformLocation(this.program, "uniformOffset");
 
+        this.#initBuffers(this.model);
+
+        // PER CANVIAR
         this.context.uniform2fv(this.vertexOffset, [-1.0, -1.0]);
-    }
-
-    initBuffers(model) {
-        let vertexArray = new Float32Array(model.vertexs);
-        let indexArray = new Uint16Array(model.indexs);
-
-        this.vertexBuffer = this.context.createBuffer();
-        this.context.bindBuffer(this.context.ARRAY_BUFFER, this.vertexBuffer);
-        this.context.bufferData(this.context.ARRAY_BUFFER, vertexArray, this.context.STATIC_DRAW);
-
-        this.indexBuffer = this.context.createBuffer();
-        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        this.context.bufferData(this.context.ELEMENT_ARRAY_BUFFER, indexArray, this.context.STATIC_DRAW);
-        this.indexLength = model.indexs.length;
     }
 
     /**
      * 
      */
-    draw() {
+    draw(cellsColor) {
         this.context.clear(this.context.COLOR_BUFFER_BIT);
         this.context.bindBuffer(this.context.ARRAY_BUFFER, this.vertexBuffer);
         this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
         this.context.vertexAttribPointer(this.vertexPosAttribute, 2, this.context.FLOAT, false, 0, 0);
 
-        this.context.uniform4fv(this.fragmentColor, [1.0, 1.0, 1.0, 1.0]);
-        this.#drawTriangles();
-
-        this.context.uniform4fv(this.fragmentColor, [0.0, 0.0, 0.0, 1.0]);
+        this.#drawTriangles(cellsColor);
         this.#drawLines();
     }
 
@@ -114,17 +108,35 @@ class TetrisRenderer {
     /* ------------------------------ FUNCIONS PRIVADES ------------------------------ */
 
     #drawLines() {
+        this.context.uniform4fv(this.fragmentColor, TetrisRenderer.LINES_COLOR);
         this.context.drawElements(this.context.LINES, this.indexLength, this.context.UNSIGNED_SHORT, 0);
     }
 
-    #drawTriangles() {
-        let indexCount = 3;
+    #drawTriangles(cellsColor) {
+        let indexCount = 6;
         let indexSize = Uint16Array.BYTES_PER_ELEMENT;
 
         for (let i = 0; i < this.indexLength; i += indexCount) {
             const offset = i * indexSize;
+            const color = this.#normalizeColor(cellsColor[i/indexCount]);
+
+            this.context.uniform4fv(this.fragmentColor, color);
             this.context.drawElements(this.context.TRIANGLES, indexCount, this.context.UNSIGNED_SHORT, offset);
         }
+    }
+
+    #initBuffers(model) {
+        let vertexArray = new Float32Array(model.vertexs);
+        let indexArray = new Uint16Array(model.indexs);
+
+        this.vertexBuffer = this.context.createBuffer();
+        this.context.bindBuffer(this.context.ARRAY_BUFFER, this.vertexBuffer);
+        this.context.bufferData(this.context.ARRAY_BUFFER, vertexArray, this.context.STATIC_DRAW);
+
+        this.indexBuffer = this.context.createBuffer();
+        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        this.context.bufferData(this.context.ELEMENT_ARRAY_BUFFER, indexArray, this.context.STATIC_DRAW);
+        this.indexLength = model.indexs.length;
     }
 
     /**
@@ -181,5 +193,24 @@ class TetrisRenderer {
         if (!this.context.getProgramParameter(this.program, this.context.LINK_STATUS)) {
             throw this.context.getProgramInfoLog(this.program);
         }
+    }
+
+    /**
+     * Normalitza un color de l'escala RGB/RGBA (0-255) a l'escala de WebGL (0.0-1.0).
+     *
+     * @param {Array<number>} color - Array amb els components del color (RGB o RGBA).
+     *                                 Els valors han d'estar en el rang [0, 255].
+     * @returns {Array<number>} Array amb 4 components [R, G, B, A] en l'escala [0.0, 1.0].
+     *                          Si l'array d'entrada té menys de 4 components, els que faltin
+     *                          es faran 0.0 excepte l'alfa que es fa 1.0 per defecte.
+     */
+    #normalizeColor(color) {
+        let c = [0.0, 0.0, 0.0, 1.0];
+
+        for (let i = 0; i < color.length; i++) {
+            c[i] = color[i] / 255.0;
+        }
+
+        return c;
     }
 }

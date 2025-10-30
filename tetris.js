@@ -33,13 +33,13 @@ class TetrisPiece {
  * @property {TetrisPiece | null} currentPiece - Peça actual.
  * @property {TetrisPiece | null} nextPiece - Peça següent.
  */
-class BoardSnapshot {
+class TetrisSnapshot {
     /**
-     * Crea una nova instància de BoardSnapshot.
+     * Crea una nova instància de TetrisSnapshot.
      * @constructor
      */
     constructor() {
-        this.grid = null;
+        this.board = null;
         this.currentPiece = null;
         this.nextPiece = null;
     }
@@ -88,19 +88,25 @@ class Tetris {
         7: "J"
     };
     /**
-     * Colors de cada tipus de peça.
+     * Colors de cada tipus de peça en format RGB (0-255).
      * @static
-     * @constant {Object<number, string>}
+     * @constant {Object<number, Array<number>>}
      */
     static PIECE_COLORS = {
-        1: "cyan",
-        2: "yellow",
-        3: "purple",
-        4: "green",
-        5: "red",
-        6: "orange",
-        7: "blue"
+        1: [0, 255, 255],    // cyan
+        2: [255, 255, 0],    // yellow
+        3: [255, 0, 255],    // purple
+        4: [0, 255, 0],      // green
+        5: [255, 0, 0],      // red
+        6: [255, 165, 0],    // orange
+        7: [0, 0, 255]       // blue
     };
+    /**
+     * Color de les cel·les buides del tauler en format RGB (0-255).
+     * @static
+     * @type {number[]}
+     */
+    static EMPTY_CELL_COLOR = [30, 30, 30];
     /**
      * Nombre de cel·les que ocupa cada tipus de peça.
      * @static
@@ -263,11 +269,11 @@ class Tetris {
     /**
      * Retorna una snapshot de l’estat actual del tauler.
      *
-     * @returns {BoardSnapshot} l'estat actual del tauler.
+     * @returns {TetrisSnapshot} l'estat actual del tauler.
      */
-    boardSnapshot() {
-        let snapshot = new BoardSnapshot();
-        snapshot.grid = structuredClone(this.board);
+    gameSnapshot() {
+        let snapshot = new TetrisSnapshot();
+        snapshot.board = structuredClone(this.board);
         snapshot.currentPiece = structuredClone(this.currentPiece);
         snapshot.nextPiece = structuredClone(this.nextPiece);
 
