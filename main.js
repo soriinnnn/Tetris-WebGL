@@ -252,6 +252,9 @@ function gameLoop() {
         if (!tetris.isGameover()) {
             gameLoop();
         }
+        else {
+            alert("Game Over!");
+        }
     });
 }
 

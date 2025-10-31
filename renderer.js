@@ -39,6 +39,24 @@ class TetrisRenderer {
      * @type {number[]}
      */
     static EMPTY_CELL_COLOR = [60, 70, 80];
+    /**
+     * Amplada i alçada del tauler en unitats d’escala del renderer.
+     * @static
+     * @type {number[]}
+     */
+    static BOARD_SIZE = [1.4, 1.4];
+    /**
+     * Amplada i alçada del recuadre on es mostra la pròxima peça en unitats d’escala del renderer.
+     * @static
+     * @type {number[]}
+     */
+    static PREVIEW_SIZE = [0.56, 0.28];
+    /**
+     * Dimensions de la graella del preview en nombre de files i columnes.
+     * @static
+     * @type {number[]}
+     */
+    static PREVIEW_DIMENSIONS = [4, 4];
 
     /**
      * Crea una instància del renderer.
@@ -49,10 +67,17 @@ class TetrisRenderer {
         this.context = null;
         this.program = null;
         this.canvas = canvas;
-        this.model = null;
-        this.vertexBuffer = null;
-        this.indexBuffer = null;
         this.vertexPosAttribute = null;
+        this.board = {
+            model: null,
+            vertexBuffer: null,
+            indexBuffer: null
+        };
+        this.preview = {
+            model: null,
+            vertexBuffer: null,
+            indexBuffer: null
+        };
 
         // Variables uniform...
         this.vertexOffset = null;
@@ -70,8 +95,6 @@ class TetrisRenderer {
      * @throws {string} Si el context WebGL2 no es pot obtenir o si algun shader falla.
      */
     init(vertexSrc, fragmentSrc, rows, columns) {
-        let transformationMatrix = mat4.create();
-
         this.#getWebGLContext();
         this.#initShaderProgram(vertexSrc, fragmentSrc);
         this.context.useProgram(this.program);
@@ -81,9 +104,17 @@ class TetrisRenderer {
         this.vertexOffset = this.context.getUniformLocation(this.program, "uniformOffset");
         this.pointSize = this.context.getUniformLocation(this.program, "uniformPointSize");
         this.fragmentColor = this.context.getUniformLocation(this.program, "uniformColor");
-        this.model = TetrisRenderer.makeBoard(rows, columns);
+        this.board.model = TetrisRenderer.makeBoard(rows,
+                                                    columns,
+                                                    TetrisRenderer.BOARD_SIZE[0],
+                                                    TetrisRenderer.BOARD_SIZE[1]);
+        this.preview.model = TetrisRenderer.makeBoard(TetrisRenderer.PREVIEW_DIMENSIONS[0],
+                                                      TetrisRenderer.PREVIEW_DIMENSIONS[1],
+                                                      TetrisRenderer.PREVIEW_SIZE[0],
+                                                      TetrisRenderer.PREVIEW_SIZE[1]);
 
-        this.#initBuffers();
+        this.#initBuffers(this.board);
+        this.#initBuffers(this.preview);
         this.context.uniform1f(this.pointSize, TetrisRenderer.POINT_SIZE);
     }
 
@@ -94,39 +125,33 @@ class TetrisRenderer {
      * @returns {void}
      */
     draw(snapshot) {
-        const colors = this.#getBoardColors(snapshot.board);
-
         this.context.clear(this.context.COLOR_BUFFER_BIT);
-        this.context.bindBuffer(this.context.ARRAY_BUFFER, this.vertexBuffer);
-        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        this.context.vertexAttribPointer(this.vertexPosAttribute, 2, this.context.FLOAT, false, 0, 0);
-
-        this.context.uniform2fv(this.vertexOffset, [-1.0, -0.5]);
-        this.#drawTriangles(colors);
-        this.#drawLines();
-        this.#drawPoints();
+        this.#drawBoard(snapshot);
+        this.#drawNextPiece(snapshot);
     }
 
     /**
      * Genera el model geomètric del tauler (vèrtexs i índexs dels quadres).
      *
      * @description
-     * L’array d’índexs recorre les cel·les per files (de dalt a baix) i columnes (d’esquerra a dreta).
-     * Cada cel·la es descompon en dos triangles en sentit horari, i cada triangle es descriu amb un grup de 3 índexs.
+     * Les cel·les es recorren per files (de dalt a baix) i columnes (d’esquerra a dreta).
+     * Cada cel·la es divideix en dos triangles en sentit horari, i cada triangle s’especifica amb 3 índexs consecutius.
      *
      * @static
      * @param {number} rows - Nombre de files.
      * @param {number} columns - Nombre de columnes.
-     * @returns {{vertexs: number[], indexs: number[]}} Arrays de vèrtexs i índexs.
+     * @param {number} [width=2.0] - Amplada total del tauler.
+     * @param {number} [height=2.0] - Alçada total del tauler.
+     * @returns {{vertexs: *[], indexs: *[]}} Dades de posicions i índexs per renderitzar el tauler.
      */
-    static makeBoard(rows, columns) {
+    static makeBoard(rows, columns, width = 2.0, height = 2.0) {
         if (rows < 2) rows = 2;
         if (columns < 2) columns = 2;
 
         let vertexs = [];
         let indexs = [];
-        let stepX = 1.0 / columns;
-        let stepY = 1.0 / rows;
+        let stepX = width / columns;
+        let stepY = height / rows;
 
         // Crea els vèrtexs.
         for (let row = 0; row <= rows; row++) {
@@ -174,6 +199,79 @@ class TetrisRenderer {
     /* ------------------------------ FUNCIONS PRIVADES ------------------------------ */
 
     /**
+     * Renderitza la peça següent al quadre de preview.
+     *
+     * @private
+     * @param {TetrisSnapshot} snapshot - Estat actual de la partida.
+     * @returns {void}
+     */
+    #drawNextPiece(snapshot) {
+        const colors = this.#getPreviewColors(snapshot.nextPiece);
+        const vertexLength = this.preview.model.vertexs.length;
+        const indexLength = this.preview.model.indexs.length;
+
+        this.context.bindBuffer(this.context.ARRAY_BUFFER, this.preview.vertexBuffer);
+        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.preview.indexBuffer);
+        this.context.vertexAttribPointer(this.vertexPosAttribute, 2, this.context.FLOAT, false, 0, 0);
+
+        this.context.uniform2fv(this.vertexOffset, [1-TetrisRenderer.PREVIEW_SIZE[0], 1-TetrisRenderer.PREVIEW_SIZE[1]]);
+        this.#drawTriangles(indexLength, colors);
+        this.#drawLines(indexLength);
+        this.#drawPoints(vertexLength);
+    }
+
+    /**
+     * Renderitza el tauler principal amb les peces i cel·les actuals.
+     *
+     * @private
+     * @param {TetrisSnapshot} snapshot - Estat actual de la partida.
+     * @returns {void}
+     */
+    #drawBoard(snapshot) {
+        const colors = this.#getBoardColors(snapshot.board);
+        const vertexLength = this.board.model.vertexs.length;
+        const indexLength = this.board.model.indexs.length;
+
+        this.context.bindBuffer(this.context.ARRAY_BUFFER, this.board.vertexBuffer);
+        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.board.indexBuffer);
+        this.context.vertexAttribPointer(this.vertexPosAttribute, 2, this.context.FLOAT, false, 0, 0);
+
+        this.context.uniform2fv(this.vertexOffset, [-1.0, 1-TetrisRenderer.BOARD_SIZE[1]]);
+        this.#drawTriangles(indexLength, colors);
+        this.#drawLines(indexLength);
+        this.#drawPoints(vertexLength);
+    }
+
+    /**
+     * Genera els colors de la graella de preview per a la peça següent.
+     *
+     * @private
+     * @param {TetrisPiece} nextPiece - Peça següent.
+     * @returns {number[][]} Array de colors en RGB (0-255) per cada cel·la del preview.
+     */
+    #getPreviewColors(nextPiece) {
+        const type = nextPiece.type;
+        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[type];
+        let colors = [];
+
+        for (let i = 0; i < TetrisRenderer.PREVIEW_DIMENSIONS[0]; i++) {
+            for (let j = 0; j < TetrisRenderer.PREVIEW_DIMENSIONS[1]; j++) {
+                colors.push(TetrisRenderer.EMPTY_CELL_COLOR);
+            }
+        }
+
+        for (let i = 0; i < totalCells; i++) {
+            const x = nextPiece.cells[i][0] - nextPiece.x + Math.floor((TetrisRenderer.PREVIEW_DIMENSIONS[0] - 1) / 2);
+            const y = nextPiece.cells[i][1] - nextPiece.y + Math.floor((TetrisRenderer.PREVIEW_DIMENSIONS[1] - 1) / 2);
+            const pos = x + y * TetrisRenderer.PREVIEW_DIMENSIONS[1];
+
+            colors[pos] = TetrisRenderer.PIECE_COLORS[type];
+        }
+
+        return colors;
+    }
+
+    /**
      * Construeix la llista de colors per cel·la a partir d’un tauler.
      *
      * @private
@@ -199,9 +297,14 @@ class TetrisRenderer {
         return colors;
     }
 
-    #drawPoints() {
-        const vertexLength = this.model.vertexs.length;
-
+    /**
+     * Dibuixa els vèrtexs del model com a punts.
+     *
+     * @private
+     * @param {number} vertexLength - Nombre total de vèrtexs del model a dibuixar.
+     * @returns {void}
+     */
+    #drawPoints(vertexLength) {
         this.context.uniform4fv(this.fragmentColor, TetrisRenderer.LINES_COLOR);
         this.context.drawArrays(this.context.POINTS, 0, vertexLength);
     }
@@ -210,11 +313,10 @@ class TetrisRenderer {
      * Dibuixa les línies de la quadrícula.
      *
      * @private
+     * @param {number} indexLength - Nombre total d’índexs del model a processar.
      * @returns {void}
      */
-    #drawLines() {
-        const indexLength = this.model.indexs.length;
-
+    #drawLines(indexLength) {
         this.context.uniform4fv(this.fragmentColor, TetrisRenderer.LINES_COLOR);
         this.context.drawElements(this.context.LINES, indexLength, this.context.UNSIGNED_SHORT, 0);
     }
@@ -223,11 +325,11 @@ class TetrisRenderer {
      * Omple cada cel·la amb el color corresponent, dibuixant els triangles que la formen.
      *
      * @private
+     * @param {number} indexLength - Nombre total d’índexs del model a processar.
      * @param {number[][]} cellsColor - Colors en RGB (0-255) per cel·la; es normalitzen abans de pintar.
      * @returns {void}
      */
-    #drawTriangles(cellsColor) {
-        const indexLength = this.model.indexs.length;
+    #drawTriangles(indexLength, cellsColor) {
         const indexSize = Uint16Array.BYTES_PER_ELEMENT;
         const indexCount = 6;
 
@@ -241,22 +343,27 @@ class TetrisRenderer {
     }
 
     /**
-     * Crea i associa els buffers de vèrtexs i índexs del model.
+     * Crea i associa els buffers de vèrtexs i índexs per a un model en concret.
      *
      * @private
+     * @param geometry - Objecte que conté el model i referències als buffers WebGL.
      * @returns {void}
      */
-    #initBuffers() {
-        let vertexArray = new Float32Array(this.model.vertexs);
-        let indexArray = new Uint16Array(this.model.indexs);
+    #initBuffers(geometry) {
+        const model = geometry.model;
+        let vertexArray = new Float32Array(model.vertexs);
+        let indexArray = new Uint16Array(model.indexs);
 
-        this.vertexBuffer = this.context.createBuffer();
-        this.context.bindBuffer(this.context.ARRAY_BUFFER, this.vertexBuffer);
+        const vertexBuffer = this.context.createBuffer();
+        this.context.bindBuffer(this.context.ARRAY_BUFFER, vertexBuffer);
         this.context.bufferData(this.context.ARRAY_BUFFER, vertexArray, this.context.STATIC_DRAW);
 
-        this.indexBuffer = this.context.createBuffer();
-        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        const indexBuffer = this.context.createBuffer();
+        this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, indexBuffer);
         this.context.bufferData(this.context.ELEMENT_ARRAY_BUFFER, indexArray, this.context.STATIC_DRAW);
+
+        geometry.vertexBuffer = vertexBuffer;
+        geometry.indexBuffer = indexBuffer;
     }
 
     /**
@@ -314,4 +421,5 @@ class TetrisRenderer {
             throw "WebGL 2.0 no està disponible.";
         }
     }
+
 }

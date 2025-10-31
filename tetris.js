@@ -141,6 +141,7 @@ class Tetris {
                 this.#placePiece(this.currentPiece);
                 this.currentPiece = this.nextPiece;
                 this.nextPiece = this.#createPiece();
+                this.#fixPieceCollisions(this.currentPiece);
                 this.#checkGameover();
             }
             return;
@@ -201,6 +202,7 @@ class Tetris {
         this.#placePiece(this.currentPiece);
         this.currentPiece = this.nextPiece;
         this.nextPiece = this.#createPiece();
+        this.#fixPieceCollisions(this.currentPiece);
         this.#checkGameover();
         this.#checkLines();
     }
@@ -302,7 +304,9 @@ class Tetris {
             const x = piece.cells[i][0];
             const y = piece.cells[i][1];
 
-            this.board[y][x] = type;
+            if (y < Tetris.BOARD_HEIGHT) {
+                this.board[y][x] = type;
+            }
         }
     }
 
@@ -417,9 +421,6 @@ class Tetris {
         piece.rotation = 0;
         piece.type = randomType;
         piece.cells = this.#getPieceCells(piece);
-
-        // Evita col·lisions al crear-se la peça.
-        this.#fixPieceCollisions(piece);
 
         return piece;
     }
