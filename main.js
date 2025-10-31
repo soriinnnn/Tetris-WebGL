@@ -1,10 +1,11 @@
 // Alumne: Sorin Chiperi Arnaut
 // Codi: u1987503
 
-const MAX_FPS = 30;
+const MAX_FPS = 60;
 const FRAME_INTERVAL_MS = 1000 / MAX_FPS;
 const GAME_DROP_INTERVAL_MS = 1000;
-const GAME_INPUT_INTERVAL_MS = 100;
+const GAME_INPUT_INTERVAL_MS = 150;
+const CONTROL_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "Space"]);
 
 var lastFrameTimeMs = 0;
 var lastDropTimeMs = 0;
@@ -16,6 +17,7 @@ var tetris = null;
 var renderer = null;
 var isPaused = false;
 var pressedKeys = new Set();
+var pendingInputs = new Set();
 
 /**
  * Inicialitza el renderer WebGL encarregat de dibuixar el joc.
@@ -39,47 +41,11 @@ function initRenderer() {
 }
 
 /**
- * Indica si una tecla concreta està premuda actualment.
- * @param {string} key - Identificador de la tecla.
- * @returns {boolean} cert si la tecla està premuda.
- */
-function isKeyDown(key) {
-    return pressedKeys.has(key);
-}
-
-/**
- * Configura els listeners de teclat per registrar i alliberar tecles premudes.
- * @returns {void}
- */
-function setupInput() {
-    document.addEventListener("keydown", (e) => pressedKeys.add(e.key));
-    document.addEventListener("keyup", (e) => {
-        pressedKeys.delete(e.key)
-        lastInputTimeMs = 0;
-    });
-}
-
-/**
- * Configura els listeners dels botons Start, Pause i Restart.
- * @returns {void}
- */
-function setupButtons() {
-    let startButton = document.getElementById("startButton");
-    let pauseButton = document.getElementById("pauseButton");
-    let restartButton = document.getElementById("restartButton");
-
-    startButton.addEventListener("click", startGame);
-    pauseButton.addEventListener("click", pauseGame);
-    restartButton.addEventListener("click", restartGame);
-}
-
-/**
  * Reinicia la partida des de zero.
  * @returns {void}
  */
 function restartGame() {
     let pauseButton = document.getElementById("pauseButton");
-    pauseButton.style.backgroundColor = "#1688dd";
     pauseButton.textContent = "Pause";
 
     play();
@@ -94,12 +60,10 @@ function pauseGame() {
 
     isPaused = !isPaused;
     if (isPaused) {
-        pauseButton.style.backgroundColor = "#33c33a";
         pauseButton.textContent = "Resume";
         pauseStartTimeMs = performance.now();
     }
     else {
-        pauseButton.style.backgroundColor = "#1688dd";
         pauseButton.textContent = "Pause";
         lastDropTimeMs += performance.now() - pauseStartTimeMs;
         lastInputTimeMs += performance.now() - pauseStartTimeMs;
@@ -118,71 +82,132 @@ function startGame() {
     startButton.disabled = true;
     pauseButton.disabled = false;
     restartButton.disabled = false;
-    startButton.style.backgroundColor = "#cccccc";
-    pauseButton.style.backgroundColor = "#1688dd";
-    restartButton.style.backgroundColor = "#df0000";
 
     play();
 }
 
 /**
- * Processa les tecles premudes i mou la peça o llança accions (moure, rotar, drop).
+ * Configura els listeners dels botons Start, Pause i Restart.
  * @returns {void}
  */
-function checkInput(currentTimeMs) {
-    if (currentTimeMs - lastInputTimeMs < GAME_INPUT_INTERVAL_MS && lastInputTimeMs !== 0) {
-        return;
-    }
+function setupButtons() {
+    let startButton = document.getElementById("startButton");
+    let pauseButton = document.getElementById("pauseButton");
+    let restartButton = document.getElementById("restartButton");
 
-    if (isKeyDown("ArrowLeft")) {
-        tetris.movePiece("left");
-    }
-    else if (isKeyDown("ArrowRight")) {
-        tetris.movePiece("right");
-    }
-
-    if (isKeyDown("ArrowDown")) {
-        tetris.movePiece("down");
-    }
-    if (isKeyDown("ArrowUp")) {
-        tetris.rotatePiece();
-    }
-    if (isKeyDown("Space")) {
-        tetris.dropPiece();
-    }
-
-    lastInputTimeMs = currentTimeMs;
+    startButton.addEventListener("click", startGame);
+    pauseButton.addEventListener("click", pauseGame);
+    restartButton.addEventListener("click", restartGame);
 }
 
 /**
- * A saber...
+ * Indica si una tecla concreta està premuda actualment.
+ * @param {string} key - Identificador de la tecla.
+ * @returns {boolean} cert si la tecla està premuda.
+ */
+function isKeyDown(key) {
+    return pressedKeys.has(key);
+}
+
+/**
+ * Configura els listeners de teclat per registrar i alliberar tecles premudes.
+ * @returns {void}
+ */
+function setupInput() {
+    document.addEventListener("keydown", (e) => {
+        if (!CONTROL_KEYS.has(e.code) || isKeyDown(e.code)) {
+            return;
+        }
+
+        pressedKeys.add(e.code);
+        pendingInputs.add(e.code);
+    });
+
+    document.addEventListener("keyup", (e) => {
+        if (!CONTROL_KEYS.has(e.code)) {
+            return;
+        }
+
+        pressedKeys.delete(e.code);
+        pendingInputs.delete(e.code);
+    });
+}
+
+/**
+ * Executa l’acció corresponent a una tecla de control.
+ * @param {string} key - Codi de la tecla premuda.
+ * @param {number} currentTimeMs - Temps (ms) del frame actual.
+ * @returns {void}
+ */
+function processInput(key, currentTimeMs) {
+    switch (key) {
+        case "ArrowLeft":
+            tetris.movePiece("left");
+            break;
+        case "ArrowRight":
+            tetris.movePiece("right");
+            break;
+        case "ArrowDown":
+            tetris.movePiece("down");
+            lastDropTimeMs = currentTimeMs;
+            break;
+        case "ArrowUp":
+            tetris.rotatePiece();
+            break;
+        case "Space":
+            tetris.dropPiece();
+            lastDropTimeMs = currentTimeMs;
+            break;
+    }
+}
+
+/**
+ * Gestiona l’entrada de teclat pendent i la repetició automàtica mentre es manté una tecla premuda.
+ * @param {number} currentTimeMs - Temps (ms) del frame actual.
+ * @returns {void}
+ */
+function checkInput(currentTimeMs) {
+    const deltaTimeMs = currentTimeMs - lastInputTimeMs;
+    let processed = new Set();
+
+    // Assegura que una tecla es llegeixi almenys una vegada sense que hagi d'esperar.
+    if (pendingInputs.size > 0) {
+        pendingInputs.forEach((key) => {
+            processInput(key, currentTimeMs);
+            processed.add(key);
+        });
+        pendingInputs.clear();
+        lastInputTimeMs = currentTimeMs;
+    }
+
+    // Si una tecla es manté polsada durant un cert temps, es llegirà un altre cop.
+    if (deltaTimeMs >= GAME_INPUT_INTERVAL_MS) {
+        pressedKeys.forEach((key) => {
+           if (!processed.has(key)) {
+               processInput(key, currentTimeMs);
+           }
+        });
+        lastInputTimeMs = currentTimeMs;
+    }
+}
+
+/**
+ * Atura el bucle d'animació actual cancel·lant el frame pendent, si n'hi ha.
+ * @returns {void}
+ */
+function stopGameLoop() {
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+}
+
+/**
+ * Dibuixa l’estat actual del joc al canvas.
+ * @returns {void}
  */
 function render() {
-    const snapshot = tetris.gameSnapshot();
-    const currentPieceType = snapshot.currentPiece.type;
-    let colors = []; // Array de colors per a cada cel·la del tauler.
-
-    for (let i = 0; i < Tetris.TOTAL_CELLS_PIECE_TYPES[currentPieceType]; i++) {
-        const x = snapshot.currentPiece.cells[i][0];
-        const y = snapshot.currentPiece.cells[i][1];
-
-        snapshot.board[y][x] = currentPieceType;
-    }
-
-    for (let i = 0; i < Tetris.BOARD_HEIGHT; i++) {
-        for (let j = 0; j < Tetris.BOARD_WIDTH; j++) {
-            let type = snapshot.board[i][j];
-
-            if (type > 0) {
-                colors.push(Tetris.PIECE_COLORS[type]);
-            }
-            else {
-                colors.push(Tetris.EMPTY_CELL_COLOR);
-            }
-        }
-    }
-
-    renderer.draw(colors);
+    renderer.draw(tetris.gameSnapshot());
 }
 
 /**
@@ -196,24 +221,14 @@ function update(currentTimeMs) {
         return;
     }
 
-    if (currentTimeMs - lastDropTimeMs >= GAME_DROP_INTERVAL_MS) {
+    const deltaTimeMs = currentTimeMs - lastDropTimeMs;
+
+    if (deltaTimeMs >= GAME_DROP_INTERVAL_MS) {
         tetris.movePiece("down");
-        tetris.checkLines();
         lastDropTimeMs = currentTimeMs;
     }
 
     checkInput(currentTimeMs);
-}
-
-/**
- * Atura el bucle d'animació actual cancel·lant el frame pendent, si n'hi ha.
- * @returns {void}
- */
-function stopGameLoop() {
-    if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-    }
 }
 
 /**
@@ -234,7 +249,6 @@ function gameLoop() {
             // És resta a currentTime els ms sobrants per evitar problemes en la següent iteració.
             lastFrameTimeMs = currentTimeMs - (deltaTimeMs % FRAME_INTERVAL_MS);
         }
-
         if (!tetris.isGameover()) {
             gameLoop();
         }
@@ -242,7 +256,7 @@ function gameLoop() {
 }
 
 /**
- * Reinicia tot l'estat del joc (tauler, temps, pausa) i arrenca el bucle de joc.
+ * Reinicia tot l'estat del joc (tauler, temps, pausa) i arrenca el bucle del joc.
  * @returns {void}
  */
 function play() {

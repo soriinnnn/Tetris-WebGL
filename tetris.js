@@ -26,11 +26,10 @@ class TetrisPiece {
 }
 
 /**
- * Classe que representa l’estat actual del joc.
+ * Classe que representa l’estat del joc Tetris.
  *
  * @class
  * @property {number[][] | null} grid - Tauler de joc.
- * @property {TetrisPiece | null} currentPiece - Peça actual.
  * @property {TetrisPiece | null} nextPiece - Peça següent.
  */
 class TetrisSnapshot {
@@ -40,19 +39,14 @@ class TetrisSnapshot {
      */
     constructor() {
         this.board = null;
-        this.currentPiece = null;
         this.nextPiece = null;
     }
 }
 
 /**
- * Classe principal que gestiona la lògica del joc Tetris.
+ * Classe que gestiona la lògica del joc Tetris.
  *
  * @class Tetris
- * @property {number[][] | null} board - Tauler de joc (matriu de cel·les).
- * @property {TetrisPiece | null} currentPiece - Peça actualment en joc.
- * @property {TetrisPiece | null} nextPiece - Següent peça a aparèixer.
- * @property {number} gameState - Estat del joc (-1: no inicialitzat, 0: en marxa, 1: acabat).
  */
 class Tetris {
     /**
@@ -88,26 +82,6 @@ class Tetris {
         7: "J"
     };
     /**
-     * Colors de cada tipus de peça en format RGB (0-255).
-     * @static
-     * @constant {Object<number, Array<number>>}
-     */
-    static PIECE_COLORS = {
-        1: [0, 255, 255],    // cyan
-        2: [255, 255, 0],    // yellow
-        3: [255, 0, 255],    // purple
-        4: [0, 255, 0],      // green
-        5: [255, 0, 0],      // red
-        6: [255, 165, 0],    // orange
-        7: [0, 0, 255]       // blue
-    };
-    /**
-     * Color de les cel·les buides del tauler en format RGB (0-255).
-     * @static
-     * @type {number[]}
-     */
-    static EMPTY_CELL_COLOR = [30, 30, 30];
-    /**
      * Nombre de cel·les que ocupa cada tipus de peça.
      * @static
      * @constant {Object<number, number>}
@@ -130,7 +104,7 @@ class Tetris {
         this.board = null;
         this.currentPiece = null;
         this.nextPiece = null;
-        this.gameState = -1;
+        this.gameState = -1;    //Estat del joc (-1: no inicialitzat, 0: en marxa, 1: acabat).
     }
 
     /**
@@ -228,34 +202,7 @@ class Tetris {
         this.currentPiece = this.nextPiece;
         this.nextPiece = this.#createPiece();
         this.#checkGameover();
-    }
-
-    /**
-     * Comprova quines files del tauler estan completament plenes i les elimina.
-     * @returns {void}
-     */
-    checkLines() {
-        if (this.gameState !== 0) {
-            return;
-        }
-
-        let linesCompleted = Array();
-
-        for (let i = Tetris.BOARD_HEIGHT-1; i >= 0; i--) {
-            let lineCompleted = true;
-            let j = 0;
-            while (j < Tetris.BOARD_WIDTH && lineCompleted) {
-                if (this.board[i][j] === 0) {
-                    lineCompleted = false;
-                }
-                else j++;
-            }
-            if (lineCompleted) {
-                linesCompleted.push(i);
-            }
-        }
-
-        this.#eraseLines(linesCompleted);
+        this.#checkLines();
     }
 
     /**
@@ -267,15 +214,26 @@ class Tetris {
     }
 
     /**
-     * Retorna una snapshot de l’estat actual del tauler.
+     * Retorna una snapshot de l’estat actual del joc.
      *
-     * @returns {TetrisSnapshot} l'estat actual del tauler.
+     * @returns {TetrisSnapshot} l'estat actual del joc.
      */
     gameSnapshot() {
+        const currentPieceType = this.currentPiece.type;
+        const totalCells = Tetris.TOTAL_CELLS_PIECE_TYPES[currentPieceType];
         let snapshot = new TetrisSnapshot();
+
         snapshot.board = structuredClone(this.board);
-        snapshot.currentPiece = structuredClone(this.currentPiece);
         snapshot.nextPiece = structuredClone(this.nextPiece);
+
+        for (let i = 0; i < totalCells; i++) {
+            const x = this.currentPiece.cells[i][0];
+            const y = this.currentPiece.cells[i][1];
+
+            if (y < Tetris.BOARD_HEIGHT) {
+                snapshot.board[y][x] = currentPieceType;
+            }
+        }
 
         return snapshot;
     }
@@ -303,6 +261,34 @@ class Tetris {
     }
 
     /**
+     * Comprova quines files del tauler estan completament plenes i les elimina.
+     * @returns {void}
+     */
+    #checkLines() {
+        if (this.gameState !== 0) {
+            return;
+        }
+
+        let linesCompleted = [];
+
+        for (let i = Tetris.BOARD_HEIGHT-1; i >= 0; i--) {
+            let lineCompleted = true;
+            let j = 0;
+            while (j < Tetris.BOARD_WIDTH && lineCompleted) {
+                if (this.board[i][j] === 0) {
+                    lineCompleted = false;
+                }
+                else j++;
+            }
+            if (lineCompleted) {
+                linesCompleted.push(i);
+            }
+        }
+
+        this.#eraseLines(linesCompleted);
+    }
+
+    /**
      * Col·loca una peça al tauler marcant les seves cel·les com ocupades.
      * @private
      * @param {TetrisPiece} piece - Peça a col·locar al tauler.
@@ -317,6 +303,22 @@ class Tetris {
             const y = piece.cells[i][1];
 
             this.board[y][x] = type;
+        }
+    }
+
+    /**
+     * Elimina les files indicades del tauler i insereix files buides a la part superior.
+     * Manté la mida del tauler constant.
+     * @private
+     * @param {number[]} lines - Índexs de files a eliminar.
+     * @returns {void}
+     */
+    #eraseLines(lines) {
+        for (let i = 0; i < lines.length; i++) {
+            const newLine = new Array(Tetris.BOARD_WIDTH).fill(0);
+
+            this.board.splice(lines[i], 1);
+            this.board.push(newLine);
         }
     }
 
@@ -337,22 +339,6 @@ class Tetris {
                 return !this.#hasCollision(piece, 0, -1);
             default:
                 return false;
-        }
-    }
-
-    /**
-     * Elimina les files indicades del tauler i insereix files buides a la part superior.
-     * Manté la mida del tauler constant.
-     * @private
-     * @param {number[]} lines - Índexs de files a eliminar.
-     * @returns {void}
-     */
-    #eraseLines(lines) {
-        for (let i = 0; i < lines.length; i++) {
-            const newLine = new Array(Tetris.BOARD_WIDTH).fill(0);
-
-            this.board.splice(lines[i], 1);
-            this.board.unshift(newLine);
         }
     }
 

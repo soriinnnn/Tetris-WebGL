@@ -16,12 +16,14 @@
     >#version 300 es
 
      uniform vec2 uniformOffset;
+     uniform float uniformPointSize;
      in vec2 vertexPos;
 
-     void main()
-     {
+     void main() {
          vec2 pos = vertexPos + uniformOffset;
+
          gl_Position = vec4(pos, 0.0, 1.0);
+         gl_PointSize = uniformPointSize;
      }
     </script>
 
@@ -32,24 +34,36 @@
      uniform vec4 uniformColor;
      out vec4 fragColor;
 
-     void main()
-     {
+     void main() {
          fragColor = uniformColor;
      }
     </script>
 </head>
 
 <body>
-    <div id="gameContainer">
-        <div id="controls">
-            <button id="startButton">Start Game</button>
-            <button id="pauseButton" disabled>Pause</button>
-            <button id="restartButton" disabled>Restart</button>
-        </div>
+    <div id="appLayout">
+        <aside id="controlsHelp">
+            <h2>Controls</h2>
+            <ul>
+                <li><span>Arrow Left</span><small>Move left</small></li>
+                <li><span>Arrow Right</span><small>Move right</small></li>
+                <li><span>Arrow Down</span><small>Soft drop</small></li>
+                <li><span>Arrow Up</span><small>Rotate piece</small></li>
+                <li><span>Space</span><small>Hard drop</small></li>
+            </ul>
+        </aside>
 
-        <canvas id="tetrisCanvas" width="400" height="800">
-            El navegador no soporta HTML5.
-        </canvas>
+        <div id="gameContainer">
+            <div id="controls">
+                <button id="startButton">Start Game</button>
+                <button id="pauseButton" disabled>Pause</button>
+                <button id="restartButton" disabled>Restart</button>
+            </div>
+
+            <canvas id="tetrisCanvas" width="400" height="800">
+                El navegador no suporta HTML5.
+            </canvas>
+        </div>
     </div>
 </body>
 
