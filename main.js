@@ -192,17 +192,6 @@ function checkInput(currentTimeMs) {
 }
 
 /**
- * Atura el bucle d'animació actual cancel·lant el frame pendent, si n'hi ha.
- * @returns {void}
- */
-function stopGameLoop() {
-    if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-    }
-}
-
-/**
  * Dibuixa l’estat actual del joc al canvas.
  * @returns {void}
  */
@@ -229,6 +218,17 @@ function update(currentTimeMs) {
     }
 
     checkInput(currentTimeMs);
+}
+
+/**
+ * Atura el bucle d'animació actual cancel·lant el frame pendent, si n'hi ha.
+ * @returns {void}
+ */
+function stopGameLoop() {
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
 }
 
 /**

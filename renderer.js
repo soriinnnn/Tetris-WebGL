@@ -70,6 +70,8 @@ class TetrisRenderer {
      * @throws {string} Si el context WebGL2 no es pot obtenir o si algun shader falla.
      */
     init(vertexSrc, fragmentSrc, rows, columns) {
+        let transformationMatrix = mat4.create();
+
         this.#getWebGLContext();
         this.#initShaderProgram(vertexSrc, fragmentSrc);
         this.context.useProgram(this.program);
@@ -83,9 +85,6 @@ class TetrisRenderer {
 
         this.#initBuffers();
         this.context.uniform1f(this.pointSize, TetrisRenderer.POINT_SIZE);
-
-        // PER CANVIAR
-        this.context.uniform2fv(this.vertexOffset, [-1.0, -1.0]);
     }
 
     /**
@@ -102,6 +101,7 @@ class TetrisRenderer {
         this.context.bindBuffer(this.context.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
         this.context.vertexAttribPointer(this.vertexPosAttribute, 2, this.context.FLOAT, false, 0, 0);
 
+        this.context.uniform2fv(this.vertexOffset, [-1.0, -0.5]);
         this.#drawTriangles(colors);
         this.#drawLines();
         this.#drawPoints();
@@ -125,8 +125,8 @@ class TetrisRenderer {
 
         let vertexs = [];
         let indexs = [];
-        let stepX = 2.0 / columns;
-        let stepY = 2.0 / rows;
+        let stepX = 1.0 / columns;
+        let stepY = 1.0 / rows;
 
         // Crea els vèrtexs.
         for (let row = 0; row <= rows; row++) {
